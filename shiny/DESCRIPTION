@@ -1,0 +1,18 @@
+Package: shiny
+Title: Ghana_Urban_Anaemia
+Version: 0.0.0.9000
+Authors@R: person('Korantema', 'Owusu-Darko', email = 'aowusuda@asu.edu', role = c('cre', 'aut'))
+Description: A shiny app which does the following things.
+  Displays the percentage of Ghanaian children with anaemia according to the 2019 
+  Ghana Malaria Indicator Survey.
+  Highlights the percentage of built up environment in each of the regions in Ghana.
+  Logistic regression to find the determinants of anaemia in Ghanaian children under 
+  5 from the 2019 GMIS data
+License: What license is it under?
+Imports: 
+    config,
+    golem,
+    shiny
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.1.1
