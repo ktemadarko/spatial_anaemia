@@ -1,0 +1,547 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r load stata data}
+library(haven)
+stat <- read_dta("stata/stata_anaemia1.dta")
+
+```
+
+```{r load packages}
+library(survey)
+library(srvyr)
+dhsdesign<-dta%>%
+  as_survey_design(id=v021,strata=v023,weights=wgt)
+```
+
+```{r built}
+dhs$built[c(157,61,63,58,53,48,30,43,47,49,62,51,50,52,54,55,45,61,58,57,28,89,90,109,118,116,117,114,115,122,113,111,121,110,112,129,187,186,28,3,46,132,129,22)]="4" #pink
+dhs$built[c(154,42,60,87,96,4,5,26,42,136)]="3" #teal
+dhs$built[c(59,41,103,127,133,171,185,173,153,149,81,103,41,21,198,18,1,2,21,81,135,133,146,107)]="2" #tan
+dhs$built[c(64,95,37,38,25,31,36,95,105,88,92,106,86,93,101,97,88,92,102,100,94,128,144,134,143,141,147,140,159,158,161,82,71,80,70,85,69,68,78,100,94,102,92,24,38,37,86,27,34,7,12,6,108,120,131,129,199,200,170,188,196,35,69,68,77,83,70,85,78,80,82,71,75,76,73,66,72,99,91,147,141,139,138,134,142,145,144,143,137,120,39,29,98,74,67,178,169)]="1" #purple
+
+#estmated values
+dhs$built[c(15,65,79,84,125)]="1"
+dhs$built[c(56,44,119)]="4"
+```
+
+```{r merge built and clust altititude}
+eg=stata_anaemia1[,c(29,30,39,4)]
+
+#column 4 in cluster
+
+#using alt colum but alt col missing 56 values
+eg=eg%>%add_column(ifelse(eg$v040%in%c(7,38),2,ifelse(eg$v040%in%c(28,13,104,19,66,27,8,29),4,ifelse(eg$v040%in%c(10,9),3,1))))
+
+library(tidyverse)
+d2%<>%add_column(cut_anStatus=as_factor(ifelse(d2$continuous_anaemia<77,"42_77g/L","78-178g/L")))
+d2%<>%add_column(quartile_anStatus=as_factor(ifelse(d2$continuous_anaemia<96,"lowest quartile","2nd-4th quartile")))
+
+#using cluster v001
+eg=eg%>%add_column(built=ifelse(eg$v001%in%c(198,185,173,171,153,149,146,135,133,127,103,81,59,41,21,18,2,1),2,ifelse(eg$v001%in%c(3,22,28,30,43:58,61:63,89,90,109:119,121,122,132,157,186,187),4,ifelse(eg$v040%in%c(154,136,96,87,60,42,26,5,4),3,1))))
+```
+
+```{r}
+library(plyr); library(dplyr)
+eg$max_built=revalue(eg$built,c("1"="None detected (0%)","2"="Low (0.1 to <20%)",
+                                   "3"= "Low-medium (20.1 to < 40%)",
+                                   "4"= "Built up (40.1 to < 100%)"))
+d2$anaemiaStatus=revalue(d2$anaemiaStatus,c("0"="No Anaemia","1"="Anaemia"))
+d2$v024=revalue(d2$v024,c("1"="Western","2"="Central",
+                          "3"="Greater Accra","4"="Volta", "5"="Eastern","6"="Ashanti",
+                          "7"="Brong Ahafo", 
+                          "8"="Northern",
+                          "9"="Upper East",
+                          "10"="Upper West"))
+```
+
+```{r des set}
+library(survey)
+
+des<-d2%>%
+  as_survey_design(id=v021,strata=v023,weights=wgt)
+
+
+svy<-svydesign(id=d2$v021,strata=d2$v023,weights=d2$wgt, data=d2)
+
+stat$max_built=eg$max_built
+stat$built=eg$built
+
+survey::svytable(~interaction(anaemiaStatus),des)
+
+dta1=tibble(dta)
+dhsdesign<-dta%>%
+  as_survey_design(id=v021,strata=v023,weights=wgt)
+
+d2$
+
+d4=dhsdesign%>%
+  group_by(v024)%>%
+  summarise(m=survey_mean(anaemiaStatus))
+
+
+
+dhsdesign%>%
+  #group_by(v024)%>%
+dhsdesign%>%
+  group_by(v024)%>%
+  summarise(m=survey_mean(anaemiaStatus))
+```
+
+
+```{r arrange rset}
+#important same as stata svy: tab anaemiaStatus
+svymean(~factor(anaemiaStatus),des)
+dhsdesign%>%
+  group_by(anaemiaStatus)%>%
+  summarise(m=survey_mean())
+
+
+svymean(~interaction(anaemiaStatus,v024), #anaemia by region
+    des)
+```
+
+
+```{r test}
+#anaemia by region
+
+svymean(~factor(v024)+factor(anaemiaStatus),des)
+svymean(factor(v024)~factor(anaemiaStatus),des)
+
+dhsdesign%>%
+  group_by(d2$v024)%>%
+  summarise(m=survey_mean(anaemiaStatus))
+
+des%>%
+  group_by(v024,anaemiaStatus)%>%
+  summarise(m=survey_mean(proportion = TRUE))
+
+dhsdesign%>%
+  dplyr::group_by(anaemiaStatus, v024)%>%
+  summarise(m=survey_mean())
+
+
+des%>%
+  dplyr::group_by(v024,anaemiaStatus)%>%
+  summarise(m=survey_mean())
+
+des%>%
+  group_by(anaemiaStatus, v024+v025)%>%
+  summarise(m=survey_mean())
+
+summary(d2$anaemiaStatus)
+
+svyby(~anaemiaStatus, by=~v024,des,svymean)
+```
+
+
+```{r set1}
+
+library(survey)
+svytotal(~anaemiaStatus,des)
+
+svymean(~interaction(anaemiaStatus,v024),
+    des)
+
+#vartype=c("se","ci")
+d2=d2%>%
+  mutate(across(c(2:4,8),as_factor))%>%
+  mutate(across(c(2:4,8),droplevels))
+
+
+tabmulti.svy(v024~anaemiaStatus,design=dhsdesign)%>%kable()
+
+tabfreq.svy(v024~anaemiaStatus,design=dhsdesign)%>%kable()
+
+summary(des)
+```
+```{r svyby}
+data(api)
+
+dclus2 <- apiclus1 %>%
+  as_survey_design(dnum, weights = pw, fpc = fpc)
+
+svymean(~interaction(awards), dclus2)
+svymean(~awards, dclus2)
+dclus2%>%
+  group_by(awards)%>%
+  summarise(m=survey_mean())
+
+#svymean(~interaction(anaemiaStatus), des)
+svymean(~anaemiaStatus, des)
+
+#svymean(~factor(anaemiaStatus),des)
+des%>%
+  group_by(anaemiaStatus, v024)%>%
+  summarise(m=survey_mean())
+```
+```{r sdistrict}
+adm2=tibble(as_factor(dta$sdistrict),dta$hw56,d2$anStatus)
+head(adm2)
+
+write_xlsx(adm2,"adm2_reg_260.xlsx")
+
+uq_districts=unique(dta$sdistrict)
+
+admin=tibble(adm2$cluster)
+admin$cont_anaemia=dta$hw56
+```
+
+```{r lowest anaemia districts}
+ggplot(d2,aes(x=continuous_anaemia))+geom_boxplot()
+
+d2%>%filter(continuous_anaemia<75)
+
+
+```
+
+
+```{r interaction}
+library(survey)
+library(srvyr)
+
+svymean(~interaction(awards,stype), dclus2) #anaemia by region
+  
+dclus2%>%
+  group_by(stype,awards)%>%
+  summarise(m=survey_mean())
+
+
+dclus2 %>%
+  mutate(awards_stype = paste(awards, stype, sep = " - ")) %>%
+  group_by(awards_stype) %>%
+  summarize(prop = survey_mean())
+
+dclus2%>%
+   group_by(groups = interaction(awards, stype))%>%
+   summarise(m=survey_mean())
+```
+
+
+```{r interaction anaemia}
+library(survey)
+library(srvyr)
+library(haven)
+
+svymean(~interaction(anaemiaStatus,v024), des) #anaemia by region
+
+svymean(~interaction(hw56,v024), des)  
+des%>%
+  group_by(v024,anaemiaStatus)%>%
+  summarise(m=survey_mean())
+
+
+des%>%
+  mutate(anaemiaStatus_v024 = paste(anaemiaStatus, v024, sep = " - ")) %>%
+  group_by(anaemiaStatus_v024) %>%
+  summarize(prop = survey_mean())
+
+des%>%
+   group_by(groups = interaction(anaemiaStatus, v024))%>%
+   summarise(m=survey_mean())
+```
+
+
+```{r cut anaemia 110g}
+
+summary(comparedf(age1,age2))
+
+age3=age3[,-c(1)]
+age5$b=d2$age_child
+age3$a=d2$age_child_months
+write_dta(age3,"a.dta")
+```
+
+
+```{r dta important}
+#new data set for test for anaemia
+stata_anaemia1$hw52=factor(stata_anaemia1$hw52)
+head(stata_anaemia1$hw52)
+
+#filter based on NAs in anemiaStatus
+dta=stata_anaemia1%>%
+  filter(!is.na(anaemiaStatus))
+
+dta1=d1%>%
+  filter(is.na(anaemiaStatus))#anaemia status available
+
+d1=stata_anaemia1%>%
+  filter(anaemiaStatus==2| anaemiaStatus==3 )
+
+d1=stata_anaemia1%>% #permission granted
+  filter(hw52==1)
+
+d3=stat%>% #permission granted
+  filter(hw55==0)
+```
+
+
+```{r d2 important}
+#questions about anaemia 232:240 alt adj hw56==235
+
+d2=dta[,c(1,26,28:30,235,406,407)]
+
+d2a=dta[,c(1,26,28:30,235,406,407)]
+d2$itnStatus=dta$itnStatus
+d2$malStatus=dta$malStatus
+d2$age_child_months=dta$b19
+d2$age_child=dta$hw1
+
+d2=d2[-c(6)]
+d2$continuous_anaemia=dta$hw56
+d2$anStatus=cut(d2$continuous_anaemia, breaks = c(-Inf, 109,Inf),
+    labels = c("Lower than 110g/L", "110g/L and higher"))
+d2
+
+library(tidyverse)
+library(haven)
+d2$district=as_factor(dta$sdistrict)
+
+des<-d2%>%
+  as_survey_design(id=v021,strata=v023,weights=wgt)
+
+
+```
+
+```{r 3true survey analysis }
+des %>%
+    nest(grouping = c(anaemiaStatus, v024)) %>%
+    group_by(grouping) %>%
+    summarize(
+      prop = survey_mean()
+    ) %>%
+  unnest(cols = grouping)
+```
+
+```{r tab v001 anaemiaStatus }
+library(dplyr)
+library(srvyr)
+ana_clust=des %>%
+  group_by(groups = interaction(anaemiaStatus,DHSCLUST))%>%
+  summarise(
+    DHSCLUST = DHSCLUST[1], 
+    anaemiaStatus = anaemiaStatus[1], 
+    Anaemia=round(survey_mean()*100,4)
+  ) %>%
+  select(-groups)
+ana_clust
+
+ac=ana_clust%>%filter(anaemiaStatus=="Anaemia")
+
+ar=ac[-c(2,4)]
+
+ar[nrow(ar) + 1,] = list(63,0)
+
+ar=ar%>%inner_join(d2, by="DHSCLUST")
+
+library(haven)
+ar%<>%
+  mutate(across(c(v021,v023,v025),as_factor))
+
+ac1=DT::datatable(ana_clust%>%filter(anaemiaStatus=="Anaemia"))
+
+
+
+#ac[63,]=list(63,"Anaemia",0,0)
+write_csv(ac,"200ana_cluster.csv")
+writexl::write_xlsx(ac,"200ana_cluster.xlsx")
+
+des %>%
+  group_by(groups = interaction(anaemiaStatus,DHSCLUST))%>%
+  summarise(
+    DHSCLUST = DHSCLUST[1], 
+    anaemiaStatus = anaemiaStatus[1], 
+    m=survey_mean()*100
+  ) %>%
+  select(-groups)
+```
+
+
+```{r 2true survey analysis }
+library(dplyr)
+library(srvyr)
+k1=des %>%
+  group_by(groups = interaction(anaemiaStatus,v024))%>%
+  summarise(
+    anaemiaStatus = anaemiaStatus[1], 
+    v024 = v024[1], 
+    m=survey_mean()
+  ) %>%
+  select(-groups)
+k1
+k2
+
+k2=des %>%
+  group_by(groups = interaction(anStatus,v024))%>%
+  summarise(
+    anStatus = anStatus[1], 
+    v024 = v024[1], 
+    m=survey_mean()
+  ) %>%
+  select(-groups)
+k2
+```
+
+
+```{r district true survey analysis }
+k3_district=des %>%
+  group_by(groups = interaction(district, anStatus))%>%
+  summarise(
+    anStatus = anStatus[1], 
+    district = district[1], 
+    m=survey_mean()
+  ) %>%
+  select(-groups)
+k3_district
+
+write_xlsx(k3_district,"136_district.xlsx")
+
+dta%>%filter(sdistrict=="jomoro")
+adm2$region=as_factor(dta$v024)
+d2$cluster=dta$v001
+dta$cluster=as_factor(dta$v001)
+adm2%>%filter(adm2$`as_factor(dta$sdistrict)`=="jomoro")
+summary(adm2)
+```
+
+```{r group_by cluster}
+cl2=readRDS("percentile_map_min_anaemia_data.Rdata")
+
+library(dplyr)
+clust1=d2%>%
+  group_by(DHSCLUST,continuous_anaemia)%>%
+  summarise(max_anaemia=max(continuous_anaemia),
+         min_anaemia=min(continuous_anaemia),
+         )
+d2$continuous_anaemia=dta$hw56
+
+try_adm=tibble(dta$hw56)
+try_adm$DHSCLUST=d2$DHSCLUST
+try_adm$district=dta$sdistrict
+d2$DHSCLUST=dta$v001
+
+d2=d2[-c(9)]
+
+
+dhs%<>%rename(cluster=try_cluster)
+
+admin=admin[-c(1)]
+admin$cluster=adm2$cluster
+```
+
+
+```{r joins}
+cl2=cl2%>%inner_join(adm2, by="cluster")
+cl2=dhs%>%inner_join(clust1, by="DHSCLUST")
+cl2=cl2%>%inner_join(try_adm, by="DHSCLUST")
+cl2=cl2%>%inner_join(admin,by="cluster")
+
+
+
+cl2$low_anaemia="False"
+cl2[2282,33]="True"
+cl2$district=as_factor(dta$sdistrict)
+writexl::write_xlsx(cl2,"pmap2.xlsx")
+dhs%<>%rename(cl2,"200_clusters_lowest_anaemia.csv")
+
+write_xlsx(clust1,"200_clusters_lowest_anaemia.xlsx")
+
+library(rgdal)
+sf::st_write(cl2,"200_clusters_lowest_anaemia.shp",driver="ESRI Shapefile")
+
+adm2$cluster=dta$v001
+
+cl2$district%<>%str_to_sentence()
+```
+
+```{r tmap}
+library(tmap)
+tmap_mode("view")
+tm1=tm_shape()
+
+cl2=cl2[-c(30)]
+
+cl2[35889,35]="True"# for 
+
+cl2$low_anaemia=("False")
+
+saveRDS(cl2,"percentile_map_min_anaemia_data.Rdata",compress=F)
+write.csv(cl2,"percentile_map_min_anaemia_data.csv")
+```
+
+```{r percentile map}
+percent=c(0,.01,.1,.5,.9,.99,1)
+#per_cont_anaemia=quantile(cl2$,percent)
+bperc=quantile(cl2$min_anaemia,percent)
+
+per_cont_anaemia=quantile(cl2$cont_anaemia,percent)
+library(tmap)
+tmap_mode("view")
+
+cont_ana_map=tm_shape(cl2)+tm_symbols(size=0.3,id="district",col="cont_anaemia",breaks=per_cont_anaemia,palette="-RdBu")
+  
+min_anaemia=tm_shape(cl2)+tm_symbols(size=0.3,id="district",col="min_anaemia",breaks=bperc,palette="-RdBu",
+                      labels=c("<1% [42-46 g/L]","1%-10% [47:65 g/L]","10%-50% [67-86 g/L]",
+                               "50%-90% [87- 100 g/L]","90%-99% [101-109 g/L]",">99% [>109 g/L]"))
+
+six1_gh_reg=st_read("ghana_16_boundaries/gha_admbnda_adm1_GSS.shp")
+
+six1=tm_shape(six1_gh_reg)+tm_polygons(id="ADM1_EN")
+
+six1+min_anaemia
+six1+cont_ana_map
+```
+
+```{r scatterplot}
+#library(tidyverse)
+#d2=d2[-c(13,14)]
+#d2$age_child_months=dta$hw1
+
+
+ggplot(d2, aes(age_child_months,hw56))+geom_point()+geom_smooth(method="gam")+scale_x_continuous(n.breaks=10)+ geom_pointdensity() #+
+ # scale_color_viridis()
+
+
+
+```
+
+```{r lm prep}
+#d2$region=as_factor(d2$v024)
+
+#west%<>%d2%>%filter(v024=="Western")
+
+reg=split(d2,d2$region)
+
+list2env(reg, envir = .GlobalEnv)
+
+lm1=lm(d2$hw56~d2$age_child_months)
+summary(lm1)
+
+cor(d2$hw56,d2$age_child_months)
+
+lm2=svyglm(d2$hw56~d2$age_child_months,design=svy)
+summary(lm2)
+print("The average haemoglobin level of a Gh child at 0 months is 98.43 g/L")
+```
+
+
+```{r age of child in months}
+ggplot(d2,aes(age_child_months))+geom_histogram(color="black", fill="#ddeeff")+scale_x_continuous(n.breaks=10)+
+  labs(title="A histogram showing the distribution of age of children in months")
+
+ggplot(d2,aes(hw56))+geom_histogram(color="black", fill="#ffaaff")+scale_x_continuous(n.breaks=10)+
+  labs(title="A histogram showing the distribution of age of children in months")
+
+#plot(d2$age_child_months)
+
+#dim(d2%>%
+  #filter(age_child_months<=12))
+  
+d2%>%
+  filter(age_child_months<=12)%>%
+  ggplot(aes(age_child_months))+geom_histogram(bins=7,color="black", fill="blue")+scale_x_continuous(n.breaks=7)+
+  labs(title="A histogram showing the distribution of age of children in months")
+```
+
